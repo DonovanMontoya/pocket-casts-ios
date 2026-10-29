@@ -43,6 +43,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         DataManager.logger = SentryLogger()
         ServerConfig.shared.errorLogger = SentryLogger()
+        AdSkipCoordinator.shared.start()
 
         appInstallState = appLifecycleAnalytics.checkApplicationInstalledOrUpgraded()
 

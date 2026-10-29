@@ -7,7 +7,7 @@ import WatchConnectivity
 class SettingsViewController: PCViewController, UITableViewDataSource, UITableViewDelegate {
     enum TableRow: String {
         case general, notifications, appearance, storageAndDataUse
-        case autoArchive, autoDownload, autoAddToUpNext, siriShortcuts
+        case autoArchive, autoDownload, autoAddToUpNext, adSkipping, siriShortcuts
         case watch, customFiles, importSteps, opml
         case about, pocketCastsPlus, privacy
         case upNextHistory, foldersHistory
@@ -44,6 +44,8 @@ class SettingsViewController: PCViewController, UITableViewDataSource, UITableVi
                 return (L10n.settingsAutoAdd, UIImage(named: "playlast"))
             case .autoDownload:
                 return (L10n.settingsAutoDownload, UIImage(named: "settings_autodownload"))
+            case .adSkipping:
+                return ("Ad Skipping", UIImage(systemName: "forward.end.alt"))
             case .importSteps:
                 return (L10n.welcomeImportButton, UIImage(named: "settings_import_podcasts"))
             case .opml:
@@ -88,7 +90,7 @@ class SettingsViewController: PCViewController, UITableViewDataSource, UITableVi
             developerSection,
             [.pocketCastsPlus],
             [.general, .notifications, .appearance],
-            [.autoArchive, .autoDownload, .autoAddToUpNext],
+            [.autoArchive, .autoDownload, .autoAddToUpNext, .adSkipping],
             [.storageAndDataUse, .siriShortcuts, .headphoneControls, .watch, .customFiles],
             [.importSteps, .opml],
             [.upNextHistory, .foldersHistory],
@@ -174,6 +176,10 @@ class SettingsViewController: PCViewController, UITableViewDataSource, UITableVi
             navigationController?.pushViewController(AutoArchiveViewController(), animated: true)
         case .autoDownload:
             navigationController?.pushViewController(DownloadSettingsViewController(), animated: true)
+        case .adSkipping:
+            let hostingController = UIHostingController(rootView: AdSkipSettingsView().setupDefaultEnvironment())
+            hostingController.title = "Ad Skipping"
+            navigationController?.pushViewController(hostingController, animated: true)
         case .importSteps:
             let controller = ImportViewModel.make(source: "settings", showSubtitle: false)
             navigationController?.present(controller, animated: true)

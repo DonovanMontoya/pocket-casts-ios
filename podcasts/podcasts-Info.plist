@@ -1025,6 +1025,8 @@
 	<string>This allows you to add custom images to your files</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Pocket Casts uses this to find Google Cast devices on your network. If you don't use this feature feel free to say no.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Pocket Casts transcribes downloaded episodes on this iPhone to find and skip ads.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Pocket Casts needs to access your microphone in order to detect nearby Google Cast devices.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
