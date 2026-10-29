@@ -1,0 +1,24 @@
+// Builds a copy that installs next to the App Store Pocket Casts on a device.
+// Pass with: xcodebuild -xcconfig config/Personal/Personal.xcconfig (see install-personal.sh)
+//
+// Everything else stays as it is for normal builds.
+
+PRODUCT_BUNDLE_IDENTIFIER_ROOT = com.donovanmontoya.pocketcasts
+APP_DISPLAY_NAME = Casts AI
+
+DEVELOPMENT_TEAM = WS7DWR8G56
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+PROVISIONING_PROFILE_SPECIFIER =
+
+// Each target's entitlements. Left out:
+// - App Groups: signing with an API key can't register them, so widgets, Siri
+//   suggestions and the share extension don't get data from the app.
+// - CarPlay and Sign in with Apple: they only work for the official app.
+PERSONAL_ENTITLEMENTS_podcasts = config/Personal/podcasts.entitlements
+PERSONAL_ENTITLEMENTS_Pocket_Casts_App_Clip = config/Personal/Pocket Casts App Clip.entitlements
+PERSONAL_ENTITLEMENTS_PodcastsIntents = config/Personal/Extension.entitlements
+PERSONAL_ENTITLEMENTS_WidgetExtension = config/Personal/Extension.entitlements
+PERSONAL_ENTITLEMENTS_Share_Extension = config/Personal/Extension.entitlements
+// Targets not listed (including Swift packages) get none, as before.
+CODE_SIGN_ENTITLEMENTS = $(PERSONAL_ENTITLEMENTS_$(TARGET_NAME:c99extidentifier))
