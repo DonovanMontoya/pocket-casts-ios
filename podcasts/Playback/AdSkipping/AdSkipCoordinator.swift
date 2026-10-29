@@ -253,10 +253,7 @@ final class AdSkipCoordinator: ObservableObject {
     /// The ad playing at `time` that hasn't been skipped yet in this listen.
     func adToSkip(episodeUuid: String, at time: TimeInterval) -> AdSegment? {
         guard AdSkipSettings.isEnabled else { return nil }
-        if skipEpisodeUuid != episodeUuid {
-            skipEpisodeUuid = episodeUuid
-            skippedSegmentIDs.removeAll()
-        }
+        beginListen(episodeUuid)
         return unskippedAds(for: episodeUuid).first { time >= $0.start && time < $0.end - 0.5 }
     }
 
@@ -287,8 +284,16 @@ final class AdSkipCoordinator: ObservableObject {
         return valid ? result : nil
     }
 
-    func markSkipped(_ segment: AdSegment) {
+    /// Lets this listen play through the ad: it isn't skipped again until another episode plays.
+    func markSkipped(_ segment: AdSegment, episodeUuid: String) {
+        beginListen(episodeUuid)
         skippedSegmentIDs.insert(segment.id)
+    }
+
+    private func beginListen(_ episodeUuid: String) {
+        guard skipEpisodeUuid != episodeUuid else { return }
+        skipEpisodeUuid = episodeUuid
+        skippedSegmentIDs.removeAll()
     }
 
     /// The playback tick runs about once a second; this lands the skip on the ad's first moment.
@@ -311,7 +316,7 @@ extension PlaybackManager {
               episode.downloaded(pathFinder: DownloadManager.shared) else { return false }
         let time = currentTime
         if let ad = coordinator.adToSkip(episodeUuid: episode.uuid, at: time) {
-            coordinator.markSkipped(ad)
+            coordinator.markSkipped(ad, episodeUuid: episode.uuid)
             FileLog.shared.addMessage("AdSkip: skipping ad from \(time) to \(ad.end)")
             // Ad skips stay on this device: no seek analytics event, and not added
             // to the skipped-time stat that syncs to the Pocket Casts account.
