@@ -37,6 +37,9 @@ final class AdSkipCoordinator: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: Self.pendingKey) }
     }
     private var worker: Task<Void, Never>?
+    /// Episodes transcribed and now with OpenAI. Classification is network-only,
+    /// so these run side by side while the next episode transcribes.
+    private var classifications: [String: Task<AdDetector.Result, Error>] = [:]
     private var observers: [NSObjectProtocol] = []
 
     private var skippedSegmentIDs: Set<UUID> = []
@@ -107,6 +110,7 @@ final class AdSkipCoordinator: ObservableObject {
     }
 
     func forget(_ uuid: String) {
+        classifications.removeValue(forKey: uuid)?.cancel()
         store.remove(uuid)
         validResults[uuid] = nil
         statuses[uuid] = nil
@@ -132,10 +136,12 @@ final class AdSkipCoordinator: ObservableObject {
         }
     }
 
+    /// Transcribes one episode at a time, since each already uses all the
+    /// recognizers iOS allows, and hands each transcript off to be classified.
     private func drain() async {
-        while let uuid = pending.first, canFindAds {
+        while let uuid = pending.first(where: { classifications[$0] == nil }), canFindAds {
             let application = UIApplication.shared
-            let work = Task { try await analyze(uuid) }
+            let work = Task { try await transcribe(uuid) }
             let backgroundTask = application.beginBackgroundTask(withName: "Find ads") {
                 // Out of background time: stop and retry when the app is next opened.
                 work.cancel()
@@ -143,42 +149,91 @@ final class AdSkipCoordinator: ObservableObject {
             defer { application.endBackgroundTask(backgroundTask) }
 
             do {
-                let count = try await work.value
-                statuses[uuid] = .found(adCount: count)
-                pending.removeAll { $0 == uuid }
+                guard let job = try await work.value else {
+                    statuses[uuid] = .found(adCount: 0)
+                    pending.removeAll { $0 == uuid }
+                    continue
+                }
+                // Forgotten (deleted, or found again) while transcribing.
+                guard pending.contains(uuid) else { continue }
+                classify(job)
             } catch is CancellationError {
                 statuses[uuid] = .waiting
                 return
             } catch {
-                FileLog.shared.addMessage("AdSkip: finding ads in \(uuid) failed: \(error.localizedDescription)")
-                statuses[uuid] = .failed(error.localizedDescription)
-                pending.removeAll { $0 == uuid }
+                failed(uuid, error)
             }
         }
     }
 
-    private func analyze(_ uuid: String) async throws -> Int {
+    private struct Transcribed {
+        let uuid: String
+        let transcript: [TranscriptChunk]
+        let publisherTranscript: String?
+        let apiKey: String
+        let started: Date
+        let transcribed: Date
+    }
+
+    private func transcribe(_ uuid: String) async throws -> Transcribed? {
         guard #available(iOS 26.0, *) else { throw AdSkippingError.transcriptionUnavailable("Finding ads needs iOS 26 or later.") }
         guard let episode = DataManager.shared.findEpisode(uuid: uuid),
               episode.downloaded(pathFinder: DownloadManager.shared),
-              let apiKey = AdSkipSettings.apiKey else { return 0 }
+              let apiKey = AdSkipSettings.apiKey else { return nil }
 
+        let started = Date()
         statuses[uuid] = .finding(progress: 0)
         let file = URL(fileURLWithPath: DownloadManager.shared.path(for: episode))
-        let publisherTranscript = await Self.publisherTranscript(for: episode)
-        let result = try await AdDetector().detectAds(
-            inAudioFile: file,
-            publisherTranscript: publisherTranscript,
-            apiKey: apiKey,
-            progress: { fraction in
-                await MainActor.run { AdSkipCoordinator.shared.statuses[uuid] = .finding(progress: fraction) }
-            }
-        )
+        async let publisherTranscript = Self.publisherTranscript(for: episode)
+        let transcript = try await AppleSpeechTranscriber().transcribe(audioFile: file) { fraction in
+            await MainActor.run { AdSkipCoordinator.shared.statuses[uuid] = .finding(progress: fraction) }
+        }
         try Task.checkCancellation()
-        try store.save(result, for: uuid)
-        validResults[uuid] = nil
-        FileLog.shared.addMessage("AdSkip: found \(result.segments.count) ads in \(uuid) from \(result.cueCount) cues, publisher transcript used: \(result.usedPublisherTranscript)")
-        return result.segments.count
+        statuses[uuid] = .finding(progress: 1)
+        return Transcribed(uuid: uuid, transcript: transcript, publisherTranscript: await publisherTranscript,
+                           apiKey: apiKey, started: started, transcribed: Date())
+    }
+
+    private func classify(_ job: Transcribed) {
+        let uuid = job.uuid
+        let application = UIApplication.shared
+        let work = Task {
+            try await AdDetector().detectAds(in: job.transcript, publisherTranscript: job.publisherTranscript, apiKey: job.apiKey)
+        }
+        classifications[uuid] = work
+        let backgroundTask = application.beginBackgroundTask(withName: "Classify ads") { work.cancel() }
+
+        Task {
+            defer {
+                application.endBackgroundTask(backgroundTask)
+                if classifications[uuid] == work { classifications[uuid] = nil }
+                resume()
+            }
+            do {
+                let result = try await work.value
+                // A cancelled request can surface as a URL error, so check the task itself.
+                guard !work.isCancelled else { throw CancellationError() }
+                try store.save(result, for: uuid)
+                validResults[uuid] = nil
+                statuses[uuid] = .found(adCount: result.segments.count)
+                pending.removeAll { $0 == uuid }
+                let transcribing = job.transcribed.timeIntervalSince(job.started)
+                let classifying = Date().timeIntervalSince(job.transcribed)
+                FileLog.shared.addMessage("AdSkip: found \(result.segments.count) ads in \(uuid) from \(result.cueCount) cues, publisher transcript used: \(result.usedPublisherTranscript), transcribing \(Int(transcribing))s, classifying \(Int(classifying))s")
+            } catch where work.isCancelled {
+                // Out of background time: picked up again when the app is next opened.
+                // When forgotten instead, forget() already dropped this task.
+                if classifications[uuid] == work { statuses[uuid] = .waiting }
+            } catch {
+                failed(uuid, error)
+            }
+        }
+    }
+
+    private func failed(_ uuid: String, _ error: Error) {
+        FileLog.shared.addMessage("AdSkip: finding ads in \(uuid) failed: \(error.localizedDescription)")
+        statuses[uuid] = .failed(error.localizedDescription)
+        pending.removeAll { $0 == uuid }
     }
 
     /// The show's own transcript, when the feed provides one. Pocket Casts'
