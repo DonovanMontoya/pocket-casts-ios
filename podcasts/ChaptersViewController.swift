@@ -11,6 +11,9 @@ class ChaptersViewController: PlayerItemViewController {
     /// Drives the per-row spinner from `cellForRowAt` so it survives cell reuse.
     var resolvingIndexPath: IndexPath?
 
+    /// What the table shows, rebuilt each time it asks for its row count.
+    var rows: [ChapterListRow] = []
+
     @IBOutlet var chaptersTable: UITableView! {
         didSet {
             registerCells()
@@ -62,12 +65,13 @@ class ChaptersViewController: PlayerItemViewController {
     func scrollToCurrentlyPlayingChapter(animated: Bool) {
         let currentChapter = PlaybackManager.shared.currentChapters
 
-        guard let index = playbackManager.index(for: currentChapter) else {
+        guard let index = playbackManager.index(for: currentChapter),
+              let row = makeRows().firstIndex(where: { $0.chapterIndex == index }) else {
             return
         }
 
         // scroll far enough to at least see the current chapter + a few more
-        chaptersTable.scrollToRow(at: IndexPath(item: index, section: 0), at: .middle, animated: animated)
+        chaptersTable.scrollToRow(at: IndexPath(item: row, section: 0), at: .middle, animated: animated)
     }
 
     private func addObservers() {
@@ -128,7 +132,8 @@ class ChaptersViewController: PlayerItemViewController {
     }
 
     private func updateHeaderVisibility() {
-        header.isHidden = !shouldShowDeselectChaptersHeader
+        // An episode with ads but no chapters lists only the ads, with nothing to deselect.
+        header.isHidden = !shouldShowDeselectChaptersHeader || playbackManager.chapterCount() == 0
         tableTopBelowHeader?.isActive = !header.isHidden
         tableTopAtEdge?.isActive = header.isHidden
     }

@@ -214,7 +214,7 @@ extension PlayerContainerViewController {
 
         let shouldShowTranscript = layout.isSplit && isLargeScreenTranscriptAvailable(for: playingEpisode)
         let shouldShowNotes = (playingEpisode is Episode)
-        let shouldShowChapters = PlaybackManager.shared.chapterCount() > 0
+        let shouldShowChapters = PlaybackManager.shared.hasChapterListRows
         if !force, shouldShowTranscript == layout.showingTranscript, shouldShowNotes == showingNotes, shouldShowChapters == showingChapters, showingBookmarks {
             return
         }
