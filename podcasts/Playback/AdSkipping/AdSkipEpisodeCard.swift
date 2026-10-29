@@ -46,9 +46,9 @@ struct AdSkipEpisodeCard: View {
         case .failed(let message): return .failed(message)
         case .found, nil: break
         }
+        if model.isDownloaded, let ads = coordinator.skippableAds(for: model.episodeUuid) { return .found(ads) }
         if !coordinator.hasAPIKey { return .needsKey }
         if !model.isDownloaded { return .notDownloaded }
-        if let ads = coordinator.skippableAds(for: model.episodeUuid) { return .found(ads) }
         return .ready
     }
 
