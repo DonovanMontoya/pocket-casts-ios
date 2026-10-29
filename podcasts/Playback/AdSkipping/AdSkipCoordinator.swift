@@ -57,6 +57,10 @@ final class AdSkipCoordinator: ObservableObject {
             guard let uuid = notification.object as? String else { return }
             MainActor.assumeIsolated { AdSkipCoordinator.shared.episodeDownloaded(uuid) }
         })
+        // The episode being listened to jumps the queue.
+        observers.append(center.addObserver(forName: Constants.Notifications.playbackStarted, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { AdSkipCoordinator.shared.prioritizePlayingEpisode() }
+        })
         // Work cut short in the background picks up again here.
         observers.append(center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { AdSkipCoordinator.shared.resume() }
@@ -85,13 +89,26 @@ final class AdSkipCoordinator: ObservableObject {
 
     // MARK: Finding ads
 
+    /// Also called when a streamed episode has been fetched in full.
     func episodeDownloaded(_ uuid: String) {
-        // A fresh download can carry different ads than the last one.
+        // A fresh download can carry different ads than the last one. A streamed
+        // copy moved into Downloads is the same file, so its result still holds.
+        validResults[uuid] = nil
+        guard currentResult(for: uuid) == nil else { return }
         forget(uuid)
         guard AdSkipSettings.findOnDownload,
               let podcastUuid = DataManager.shared.findEpisode(uuid: uuid)?.podcastUuid,
               !isExempt(podcastUuid: podcastUuid) else { return }
         enqueue([uuid])
+        prioritizePlayingEpisode()
+    }
+
+    private func prioritizePlayingEpisode() {
+        guard let uuid = PlaybackManager.shared.currentEpisode?.uuid,
+              let index = pending.firstIndex(of: uuid), index > 0 else { return }
+        var queue = pending
+        queue.insert(queue.remove(at: index), at: 0)
+        pending = queue
     }
 
     /// Finds ads in one downloaded episode, replacing any earlier result.
@@ -178,12 +195,12 @@ final class AdSkipCoordinator: ObservableObject {
     private func transcribe(_ uuid: String) async throws -> Transcribed? {
         guard #available(iOS 26.0, *) else { throw AdSkippingError.transcriptionUnavailable("Finding ads needs iOS 26 or later.") }
         guard let episode = DataManager.shared.findEpisode(uuid: uuid),
-              episode.downloaded(pathFinder: DownloadManager.shared),
+              let path = episode.adAudioPath,
               let apiKey = AdSkipSettings.apiKey else { return nil }
 
         let started = Date()
         statuses[uuid] = .finding(progress: 0)
-        let file = URL(fileURLWithPath: DownloadManager.shared.path(for: episode))
+        let file = URL(fileURLWithPath: path)
         async let publisherTranscript = Self.publisherTranscript(for: episode)
         let transcript = try await AppleSpeechTranscriber().transcribe(audioFile: file) { fraction in
             await MainActor.run { AdSkipCoordinator.shared.statuses[uuid] = .finding(progress: fraction) }
@@ -271,12 +288,12 @@ final class AdSkipCoordinator: ObservableObject {
         (skippableAds(for: episodeUuid) ?? []).filter { !skippedSegmentIDs.contains($0.id) }
     }
 
-    /// Results only count for the download they were made from. A file replaced
-    /// since (deleted and downloaded again) can carry different ads.
+    /// Results only count for the file they were made from. A file replaced
+    /// since (deleted and downloaded or streamed again) can carry different ads.
     private func currentResult(for episodeUuid: String) -> AdDetector.Result? {
         guard let result = store.result(for: episodeUuid) else { return nil }
         if let valid = validResults[episodeUuid] { return valid ? result : nil }
-        let path = DataManager.shared.findEpisode(uuid: episodeUuid).map { DownloadManager.shared.path(for: $0) }
+        let path = DataManager.shared.findEpisode(uuid: episodeUuid)?.adAudioPath
         let modified = path.flatMap { try? FileManager.default.attributesOfItem(atPath: $0)[.modificationDate] as? Date }
         let valid = modified.map { $0 <= result.analyzedAt } ?? false
         validResults[episodeUuid] = valid
@@ -307,13 +324,14 @@ final class AdSkipCoordinator: ObservableObject {
 
 extension PlaybackManager {
     /// Skips the ad at the current position, if any. Returns true when it skipped.
-    /// Only downloaded files are checked: ad times come from transcribing that exact file.
+    /// Only local files are checked (a download, or a stream fetched in full): ad
+    /// times come from transcribing that exact file.
     @MainActor
     func skipAdIfNeeded() -> Bool {
         let coordinator = AdSkipCoordinator.shared
         guard let episode = currentEpisode as? Episode, !isSeeking,
               !coordinator.isExempt(podcastUuid: episode.podcastUuid),
-              episode.downloaded(pathFinder: DownloadManager.shared) else { return false }
+              episode.adAudioPath != nil else { return false }
         let time = currentTime
         if let ad = coordinator.adToSkip(episodeUuid: episode.uuid, at: time) {
             coordinator.markSkipped(ad, episodeUuid: episode.uuid)
@@ -337,5 +355,16 @@ extension PlaybackManager {
             }
         }
         return false
+    }
+}
+
+extension Episode {
+    /// The file ads are found in and skipped from: the download, or the full copy
+    /// kept after streaming the whole episode. Nil when neither is on the phone.
+    var adAudioPath: String? {
+        let files = DownloadManager.shared
+        if downloaded(pathFinder: files) { return files.path(for: self) }
+        if streamDownloaded(pathFinder: files) { return files.streamingBufferPath(for: self) }
+        return nil
     }
 }

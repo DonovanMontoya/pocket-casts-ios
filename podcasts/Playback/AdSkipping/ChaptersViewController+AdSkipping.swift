@@ -8,7 +8,7 @@ extension PlaybackManager {
     @MainActor
     var currentEpisodeAds: [AdSegment] {
         guard let episode = currentEpisode as? Episode,
-              episode.downloaded(pathFinder: DownloadManager.shared) else { return [] }
+              episode.adAudioPath != nil else { return [] }
         return AdSkipCoordinator.shared.skippableAds(for: episode.uuid) ?? []
     }
 
