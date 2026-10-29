@@ -10,6 +10,7 @@ extension EpisodeDetailViewController {
 
         let model = AdSkipEpisodeModel(
             episodeUuid: episode.uuid,
+            podcastUuid: episode.podcastUuid,
             isDownloaded: episode.downloaded(pathFinder: DownloadManager.shared),
             openSettings: { [weak self] in self?.showAdSkipSettings() }
         )
