@@ -29,6 +29,7 @@ struct PodcastHeaderView: View {
 
     @EnvironmentObject var theme: Theme
     @ObservedObject var viewModel: PodcastHeaderViewModel
+    @ObservedObject private var adSkip = AdSkipCoordinator.shared
 
     @State private var contentHeight: CGFloat = RichExpandableLabel.estimateHeightFor(maxLines: 3, lineHeightMultiple: 1.4, font: UIFont.preferredFont(forTextStyle: .body))
 
@@ -236,12 +237,47 @@ struct PodcastHeaderView: View {
                 if let _ = viewModel.podcast.fundingURL {
                     fundingButton
                 }
+                if AdSkipSettings.isSupported {
+                    adSkipButton
+                }
                 actionButton(title: L10n.settings, imageName: "podcast-settings") {
                     viewModel.delegate?.settingsTapped()
                 }
             }
             Spacer()
         }
+    }
+
+    /// Turns ad skipping off or on for every episode of this podcast.
+    private var adSkipButton: some View {
+        let uuid = viewModel.podcast.uuid
+        let isExempt = adSkip.isExempt(podcastUuid: uuid)
+        return Menu {
+            Section(isExempt ? "Ads aren't skipped on this podcast" : "Ads are skipped on this podcast") {
+                Button {
+                    adSkip.setExempt(!isExempt, podcastUuid: uuid)
+                } label: {
+                    Label(isExempt ? "Skip Ads on This Podcast" : "Don't Skip Ads on This Podcast",
+                          systemImage: isExempt ? "forward.end.alt" : "nosign")
+                }
+            }
+        } label: {
+            Image(systemName: "forward.end.alt")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: iconSize * 0.85, height: iconSize * 0.85)
+                .frame(width: iconSize, height: iconSize)
+                .overlay {
+                    if isExempt {
+                        Capsule()
+                            .frame(width: 2, height: iconSize * 1.15)
+                            .rotationEffect(.degrees(-45))
+                    }
+                }
+                .padding(8)
+                .foregroundStyle(theme.primaryIcon03)
+        }
+        .accessibilityLabel(isExempt ? "Ad skipping, off for this podcast" : "Ad skipping, on for this podcast")
     }
 
     private func actionButton(title: String, imageName: String, action: @escaping ()->()) -> some View {
