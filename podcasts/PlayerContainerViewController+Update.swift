@@ -38,7 +38,7 @@ extension PlayerContainerViewController {
         tabsView.themeDidChange()
 
         let shouldShowNotes = (playingEpisode is Episode)
-        let shouldShowChapters = PlaybackManager.shared.chapterCount() > 0
+        let shouldShowChapters = PlaybackManager.shared.hasChapterListRows
         let shouldShowBookmarks = true
 
         // check to see if the visible views are already configured correctly
