@@ -35,6 +35,19 @@ class TimeSlider: UIView {
         }
     }
 
+    /// Time ranges highlighted on the track, such as ads that will be skipped.
+    var markedRanges: [Range<TimeInterval>] = [] {
+        didSet {
+            if markedRanges != oldValue { recalculatePositionRects(false) }
+        }
+    }
+
+    var markColor = UIColor.systemYellow {
+        didSet {
+            timeLayer().markColor = markColor.cgColor
+        }
+    }
+
     var popupColor = UIColor(white: 1.0, alpha: 0.25)
     var popupTextColor = UIColor.white
 
@@ -82,6 +95,7 @@ class TimeSlider: UIView {
         tLayer.rightColor = rightColor.cgColor
         tLayer.animationColor = animationColor.cgColor
         tLayer.circleColor = circleColor.cgColor
+        tLayer.markColor = markColor.cgColor
         tLayer.popupColor = popupColor
         tLayer.popupTextColor = popupTextColor
         tLayer.popupScale = 0
@@ -197,6 +211,13 @@ class TimeSlider: UIView {
         var knobX = max(sidePadding, sidePadding + progressSize - (knobWidth / 2))
         knobX = min(knobX, sidePadding + availableWidth - knobWidth)
         timeLayer().knobRect = CGRect(x: knobX, y: viewCenterWithOffset - (knobWidth / 2), width: knobWidth, height: knobWidth)
+        timeLayer().markRects = totalDuration > 0 ? markedRanges.compactMap { range in
+            let start = max(0, range.lowerBound), end = min(totalDuration, range.upperBound)
+            guard end > start else { return nil }
+            let x = sidePadding + CGFloat(start / totalDuration) * availableWidth
+            let width = max(2, CGFloat((end - start) / totalDuration) * availableWidth)
+            return CGRect(x: x, y: viewCenterWithOffset - (lineHeight / 2), width: width, height: lineHeight)
+        } : []
         if !animated {
             CATransaction.commit()
         }

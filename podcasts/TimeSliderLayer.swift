@@ -15,6 +15,12 @@ class TimeSliderLayer: CALayer {
     @NSManaged var popupColor: UIColor
     @NSManaged var popupTextColor: UIColor
 
+    /// Highlighted spans of the track. Not animated, so plain properties are enough.
+    var markRects: [CGRect] = [] {
+        didSet { setNeedsDisplay() }
+    }
+    var markColor: CGColor = UIColor.systemYellow.cgColor
+
     @NSManaged var popupValue: NSString
     @NSManaged var textStyle: NSParagraphStyle
 
@@ -47,6 +53,8 @@ class TimeSliderLayer: CALayer {
         textStyle = otherLayer.textStyle
 
         shouldAnimate = otherLayer.shouldAnimate
+        markRects = otherLayer.markRects
+        markColor = otherLayer.markColor
     }
 
     override class func needsDisplay(forKey key: String) -> Bool {
@@ -101,6 +109,12 @@ class TimeSliderLayer: CALayer {
         ctx.setStrokeColor(rightColor)
         let rightPath = UIBezierPath(roundedRect: rightHalfRect, cornerRadius: 2)
         rightPath.fill()
+
+        // draw the marked spans over the line
+        ctx.setFillColor(markColor)
+        for rect in markRects {
+            UIBezierPath(roundedRect: rect, cornerRadius: 2).fill()
+        }
 
         // draw the knob
         ctx.addEllipse(in: knobRect)
