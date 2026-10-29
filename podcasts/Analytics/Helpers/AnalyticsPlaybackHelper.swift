@@ -31,6 +31,11 @@ class AnalyticsPlaybackHelper: AnalyticsCoordinator {
         track(.playbackSkipForward)
     }
 
+    /// Seeks the app makes for the listener, like skipping an ad, aren't reported as seeks.
+    func ignoreNextSeekEvent() {
+        ignoreNextSeek = true
+    }
+
     func seek(from: TimeInterval, to: TimeInterval, duration: TimeInterval) {
         // Currently ignore a seek event that is triggered by a sync process
         // Using the skip buttons triggers a seek, ignore this as well
