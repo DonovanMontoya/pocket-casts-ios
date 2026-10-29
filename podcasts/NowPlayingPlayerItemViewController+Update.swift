@@ -190,6 +190,9 @@ extension NowPlayingPlayerItemViewController {
             timeSlider.totalDuration = duration
 
             timeSlider.currentTime = upTo
+            #if !APPCLIP
+            updateAdMarkers()
+            #endif
         }
 
         timeSlider.indeterminant = PlaybackManager.shared.isBuffering && PlaybackManager.shared.isPlaying
