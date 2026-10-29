@@ -1767,6 +1767,10 @@ class PlaybackManager: ServerPlaybackDelegate {
             }
         }
 
+        #if !APPCLIP && !os(watchOS) && !os(tvOS)
+        if MainActor.assumeIsolated({ skipAdIfNeeded() }) { return }
+        #endif
+
         checkForChapterChange()
         fireProgressNotification()
 
