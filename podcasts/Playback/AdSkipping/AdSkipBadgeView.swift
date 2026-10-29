@@ -63,8 +63,9 @@ final class AdSkipBadgeView: UIStackView {
         case .waiting:
             apply(text: nil, alpha: 0.5, accessibility: "Waiting to find ads")
         case .finding(let progress):
-            let percent = "\(Int((progress * 100).rounded()))%"
-            apply(text: percent, isFinding: true, accessibility: "Finding ads, \(percent)")
+            // Transcribed and now being classified: no percent to show.
+            let percent = progress < 1 ? "\(Int((progress * 100).rounded()))%" : nil
+            apply(text: percent, isFinding: true, accessibility: percent.map { "Finding ads, \($0)" } ?? "Checking for ads")
         case .failed:
             apply(text: nil, tint: ThemeColor.support05(), accessibility: "Couldn't find ads")
         case .found, nil:
