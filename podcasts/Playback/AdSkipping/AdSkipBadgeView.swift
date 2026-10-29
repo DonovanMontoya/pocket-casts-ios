@@ -51,7 +51,7 @@ final class AdSkipBadgeView: UIStackView {
         let episode = AdSkipSettings.isSupported ? episode as? Episode : nil
         episodeUuid = episode?.uuid
         podcastUuid = episode?.podcastUuid
-        isDownloaded = episode?.downloaded(pathFinder: DownloadManager.shared) ?? false
+        isDownloaded = episode?.adAudioPath != nil
         refresh()
     }
 

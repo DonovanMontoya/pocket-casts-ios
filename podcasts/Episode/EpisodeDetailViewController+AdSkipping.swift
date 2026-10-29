@@ -11,7 +11,7 @@ extension EpisodeDetailViewController {
         let model = AdSkipEpisodeModel(
             episodeUuid: episode.uuid,
             podcastUuid: episode.podcastUuid,
-            isDownloaded: episode.downloaded(pathFinder: DownloadManager.shared),
+            isDownloaded: episode.adAudioPath != nil,
             openSettings: { [weak self] in self?.showAdSkipSettings() }
         )
         let controller = ThemedHostingController(rootView: AdSkipEpisodeCard(model: model))
@@ -23,7 +23,7 @@ extension EpisodeDetailViewController {
     }
 
     func updateAdSkipCard() {
-        let isDownloaded = episode.downloaded(pathFinder: DownloadManager.shared)
+        let isDownloaded = episode.adAudioPath != nil
         if adSkipModel?.isDownloaded != isDownloaded { adSkipModel?.isDownloaded = isDownloaded }
     }
 
