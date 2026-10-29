@@ -51,6 +51,15 @@ let package = Package(
     ],
     targets: XcodeSupport.targets + [
         .target(
+            name: "AdSkipping",
+            path: "Sources/AdSkipping"
+        ),
+        .testTarget(
+            name: "AdSkippingTests",
+            dependencies: ["AdSkipping"],
+            path: "Tests/AdSkippingTests"
+        ),
+        .target(
             name: "PocketCastsUtils",
             path: "Sources/PocketCastsUtils",
             swiftSettings: [
@@ -198,6 +207,7 @@ enum XcodeSupport {
             .xcodeTarget(
                 XcodeTargetNames.podcasts,
                 dependencies: [
+                    "AdSkipping",
                     "PocketCastsDataModel",
                     "PocketCastsServer",
                     "PocketCastsUtils",
