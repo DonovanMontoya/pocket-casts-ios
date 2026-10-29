@@ -24,6 +24,10 @@ final class AdSkipCoordinator: ObservableObject {
 
     @Published private(set) var statuses: [String: Status] = [:]
     @Published private(set) var hasAPIKey = AdSkipSettings.apiKey != nil
+    @Published var confidenceThreshold = AdSkipSettings.confidenceThreshold {
+        didSet { AdSkipSettings.confidenceThreshold = confidenceThreshold }
+    }
+    @Published private(set) var exemptPodcastUuids = AdSkipSettings.exemptPodcastUuids
 
     let store = AdSegmentStore()
 
@@ -61,6 +65,15 @@ final class AdSkipCoordinator: ObservableObject {
         AdSkipSettings.isSupported && hasAPIKey
     }
 
+    func isExempt(podcastUuid: String) -> Bool {
+        exemptPodcastUuids.contains(podcastUuid)
+    }
+
+    func setExempt(_ exempt: Bool, podcastUuid: String) {
+        if exempt { exemptPodcastUuids.insert(podcastUuid) } else { exemptPodcastUuids.remove(podcastUuid) }
+        AdSkipSettings.exemptPodcastUuids = exemptPodcastUuids
+    }
+
     func setAPIKey(_ key: String?) {
         AdSkipSettings.apiKey = key
         hasAPIKey = AdSkipSettings.apiKey != nil
@@ -72,7 +85,10 @@ final class AdSkipCoordinator: ObservableObject {
     func episodeDownloaded(_ uuid: String) {
         // A fresh download can carry different ads than the last one.
         forget(uuid)
-        if AdSkipSettings.findOnDownload { enqueue([uuid]) }
+        guard AdSkipSettings.findOnDownload,
+              let podcastUuid = DataManager.shared.findEpisode(uuid: uuid)?.podcastUuid,
+              !isExempt(podcastUuid: podcastUuid) else { return }
+        enqueue([uuid])
     }
 
     /// Finds ads in one downloaded episode, replacing any earlier result.
@@ -84,7 +100,8 @@ final class AdSkipCoordinator: ObservableObject {
     /// Finds ads in every downloaded episode that hasn't been checked yet.
     func findAdsInDownloadedEpisodes() {
         let uuids = DataManager.shared.findDownloadedEpisodes()
-            .filter { $0 is Episode && store.result(for: $0.uuid) == nil }
+            .compactMap { $0 as? Episode }
+            .filter { store.result(for: $0.uuid) == nil && !isExempt(podcastUuid: $0.podcastUuid) }
             .map(\.uuid)
         enqueue(uuids)
     }
@@ -195,7 +212,7 @@ final class AdSkipCoordinator: ObservableObject {
 
     /// The ads that playback skips in this episode's current download, or nil when it hasn't been checked.
     func skippableAds(for episodeUuid: String) -> [AdSegment]? {
-        currentResult(for: episodeUuid)?.segments.filter { $0.confidence >= AdSkipSettings.confidenceThreshold }
+        currentResult(for: episodeUuid)?.segments.filter { $0.confidence >= confidenceThreshold }
     }
 
     private func unskippedAds(for episodeUuid: String) -> [AdSegment] {
@@ -233,9 +250,10 @@ extension PlaybackManager {
     /// Only downloaded files are checked: ad times come from transcribing that exact file.
     @MainActor
     func skipAdIfNeeded() -> Bool {
-        guard let episode = currentEpisode as? Episode, !isSeeking,
-              episode.downloaded(pathFinder: DownloadManager.shared) else { return false }
         let coordinator = AdSkipCoordinator.shared
+        guard let episode = currentEpisode as? Episode, !isSeeking,
+              !coordinator.isExempt(podcastUuid: episode.podcastUuid),
+              episode.downloaded(pathFinder: DownloadManager.shared) else { return false }
         let time = currentTime
         if let ad = coordinator.adToSkip(episodeUuid: episode.uuid, at: time) {
             coordinator.markSkipped(ad)
@@ -245,10 +263,10 @@ extension PlaybackManager {
             AnalyticsPlaybackHelper.shared.ignoreNextSeekEvent()
             seekTo(time: ad.end)
             if UIApplication.shared.applicationState == .active {
-                Toast.show("Skipped ad", actions: [.init(title: "Undo") {
+                AdSkipNoticeView.show {
                     AnalyticsPlaybackHelper.shared.ignoreNextSeekEvent()
                     PlaybackManager.shared.seekTo(time: time)
-                }], theme: .playerTheme)
+                }
             }
             return true
         }

@@ -29,6 +29,26 @@ struct AdSkipSettingsView: View {
             }
 
             Section {
+                VStack(alignment: .leading) {
+                    LabeledContent("Skip confidence", value: "\(Int((coordinator.confidenceThreshold * 100).rounded()))%")
+                    // Whole percents, without the step marks a stepped slider draws.
+                    Slider(value: Binding(
+                        get: { coordinator.confidenceThreshold },
+                        set: { coordinator.confidenceThreshold = ($0 * 100).rounded() / 100 }
+                    ), in: AdSkipSettings.confidenceRange) {
+                        Text("Skip confidence")
+                    } minimumValueLabel: {
+                        Text("50%")
+                    } maximumValueLabel: {
+                        Text("99%")
+                    }
+                    .accessibilityValue("\(Int((coordinator.confidenceThreshold * 100).rounded())) percent")
+                }
+            } footer: {
+                Text("Only ads at least this certain are skipped. Lower skips more, with more chance of skipping something that isn't an ad. 80% is the default.")
+            }
+
+            Section {
                 if coordinator.hasAPIKey {
                     LabeledContent("OpenAI API key", value: "Saved")
                     Button("Remove Key", role: .destructive) {
