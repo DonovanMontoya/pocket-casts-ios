@@ -9,6 +9,7 @@ CURRENT_PROJECT_VERSION = $(VERSION_LONG)
 
 // Define a root bundle identifier so that extensions can append to it
 PRODUCT_BUNDLE_IDENTIFIER_ROOT = au.com.shiftyjelly.podcasts
+APP_DISPLAY_NAME = Pocket Casts
 
 DEVELOPMENT_TEAM = PZYM8XX95Q // Automattic, Inc. (Company)
 
