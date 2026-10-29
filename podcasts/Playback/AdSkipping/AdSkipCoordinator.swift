@@ -240,10 +240,15 @@ extension PlaybackManager {
         if let ad = coordinator.adToSkip(episodeUuid: episode.uuid, at: time) {
             coordinator.markSkipped(ad)
             FileLog.shared.addMessage("AdSkip: skipping ad from \(time) to \(ad.end)")
-            StatsManager.shared.addAutoSkipTime(ad.end - time)
+            // Ad skips stay on this device: no seek analytics event, and not added
+            // to the skipped-time stat that syncs to the Pocket Casts account.
+            AnalyticsPlaybackHelper.shared.ignoreNextSeekEvent()
             seekTo(time: ad.end)
             if UIApplication.shared.applicationState == .active {
-                Toast.show("Skipped ad", actions: [.init(title: "Undo") { PlaybackManager.shared.seekTo(time: time) }], theme: .playerTheme)
+                Toast.show("Skipped ad", actions: [.init(title: "Undo") {
+                    AnalyticsPlaybackHelper.shared.ignoreNextSeekEvent()
+                    PlaybackManager.shared.seekTo(time: time)
+                }], theme: .playerTheme)
             }
             return true
         }
