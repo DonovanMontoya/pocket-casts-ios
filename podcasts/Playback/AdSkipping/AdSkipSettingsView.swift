@@ -4,7 +4,7 @@ import SwiftUI
 struct AdSkipSettingsView: View {
     @ObservedObject private var coordinator = AdSkipCoordinator.shared
     @State private var isEnabled = AdSkipSettings.isEnabled
-    @State private var hasKey = AdSkipSettings.apiKey != nil
+    @State private var findOnDownload = AdSkipSettings.findOnDownload
     @State private var keyDraft = ""
 
     var body: some View {
@@ -20,25 +20,27 @@ struct AdSkipSettingsView: View {
                     .onChange(of: isEnabled) { _, value in
                         AdSkipSettings.isEnabled = value
                     }
+                Toggle("Find ads when episodes download", isOn: $findOnDownload)
+                    .onChange(of: findOnDownload) { _, value in
+                        AdSkipSettings.findOnDownload = value
+                    }
             } footer: {
-                Text("When an episode finishes downloading, it's transcribed on this iPhone, and the transcript text is checked for ads. Ads are then skipped during playback of that download.")
+                Text("Finding ads transcribes the download on this iPhone and checks the transcript text for ads. Turn off finding on download to choose episodes yourself with Find Ads on an episode's details.")
             }
 
             Section {
-                if hasKey {
+                if coordinator.hasAPIKey {
                     LabeledContent("OpenAI API key", value: "Saved")
                     Button("Remove Key", role: .destructive) {
-                        AdSkipSettings.apiKey = nil
-                        hasKey = false
+                        coordinator.setAPIKey(nil)
                     }
                 } else {
                     SecureField("OpenAI API key", text: $keyDraft)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     Button("Save Key") {
-                        AdSkipSettings.apiKey = keyDraft
+                        coordinator.setAPIKey(keyDraft)
                         keyDraft = ""
-                        hasKey = AdSkipSettings.apiKey != nil
                     }
                     .disabled(keyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
@@ -50,7 +52,7 @@ struct AdSkipSettingsView: View {
                 Button("Find Ads in Downloaded Episodes") {
                     coordinator.findAdsInDownloadedEpisodes()
                 }
-                .disabled(!AdSkipSettings.isSupported || !hasKey || !isEnabled)
+                .disabled(!coordinator.canFindAds)
             }
 
             if !coordinator.statuses.isEmpty {
