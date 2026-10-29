@@ -28,6 +28,9 @@ class EpisodeCell: ThemeableSwipeCell, MainEpisodeActionViewDelegate {
         }
     }
     @IBOutlet var bookmarkIcon: UIImageView!
+    #if !APPCLIP
+    private let adBadge = AdSkipBadgeView()
+    #endif
 
     @IBOutlet var informationLabel: ThemeableLabel! {
         didSet {
@@ -154,6 +157,13 @@ class EpisodeCell: ThemeableSwipeCell, MainEpisodeActionViewDelegate {
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (view: EpisodeCell, _) in
             view.updateSize()
         }
+
+        #if !APPCLIP
+        if let infoStack = statusIndicator.superview as? UIStackView,
+           let index = infoStack.arrangedSubviews.firstIndex(of: statusIndicator) {
+            infoStack.insertArrangedSubview(adBadge, at: index + 1)
+        }
+        #endif
 
         NotificationCenter.default.addObserver(self, selector: #selector(updateCellFromGenericEvent), name: Constants.Notifications.playbackStarted, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(updateCellFromGenericEvent), name: Constants.Notifications.playbackEnded, object: nil)
@@ -293,6 +303,9 @@ class EpisodeCell: ThemeableSwipeCell, MainEpisodeActionViewDelegate {
                 statusIndicator.image = statusImage
             }
             statusIndicator.isHidden = hideStatus
+            #if !APPCLIP
+            adBadge.show(episode)
+            #endif
 
             if hidesArtwork {
                 if !episodeImage.isHidden {
@@ -399,6 +412,11 @@ class EpisodeCell: ThemeableSwipeCell, MainEpisodeActionViewDelegate {
         } else if let playbackError = episode.playbackErrorDetails {
             desc.append(playbackError)
         }
+        #if !APPCLIP
+        if let ads = adBadge.accessibilityText {
+            desc.append(ads)
+        }
+        #endif
         if episode.keepEpisode {
             desc.append(L10n.statusStarred)
         }
@@ -631,6 +649,9 @@ class EpisodeCell: ThemeableSwipeCell, MainEpisodeActionViewDelegate {
         upNextIndicator.alpha = 1
         upNextIndicator.transform = .identity
         statusIndicator.isHidden = true
+        #if !APPCLIP
+        adBadge.show(nil)
+        #endif
         uploadProgressIndicator.isHidden = true
         uploadStatusIndicator.isHidden = true
         playlistUuid = nil
