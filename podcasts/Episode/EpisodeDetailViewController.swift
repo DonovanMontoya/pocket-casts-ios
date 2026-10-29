@@ -178,6 +178,7 @@ class EpisodeDetailViewController: FakeNavViewController, UIDocumentInteractionC
     let fromPlaylist: AutoplayHelper.Playlist?
 
     private var currentTab: Tab = .details
+    var adSkipModel: AdSkipEpisodeModel?
 
     // MARK: - Init
 
@@ -247,6 +248,7 @@ class EpisodeDetailViewController: FakeNavViewController, UIDocumentInteractionC
 
         setupWebView()
         updateMessageView()
+        addAdSkipCard()
         mainScrollView.contentOffset.y = -100
 
         hideErrorMessage(hide: true)
