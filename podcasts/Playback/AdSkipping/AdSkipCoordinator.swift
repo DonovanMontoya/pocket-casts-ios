@@ -23,6 +23,7 @@ final class AdSkipCoordinator: ObservableObject {
     }
 
     @Published private(set) var statuses: [String: Status] = [:]
+    @Published private(set) var hasAPIKey = AdSkipSettings.apiKey != nil
 
     let store = AdSegmentStore()
 
@@ -57,13 +58,25 @@ final class AdSkipCoordinator: ObservableObject {
     }
 
     var canFindAds: Bool {
-        AdSkipSettings.isEnabled && AdSkipSettings.isSupported && AdSkipSettings.apiKey != nil
+        AdSkipSettings.isSupported && hasAPIKey
+    }
+
+    func setAPIKey(_ key: String?) {
+        AdSkipSettings.apiKey = key
+        hasAPIKey = AdSkipSettings.apiKey != nil
+        resume()
     }
 
     // MARK: Finding ads
 
     func episodeDownloaded(_ uuid: String) {
         // A fresh download can carry different ads than the last one.
+        forget(uuid)
+        if AdSkipSettings.findOnDownload { enqueue([uuid]) }
+    }
+
+    /// Finds ads in one downloaded episode, replacing any earlier result.
+    func findAds(in uuid: String) {
         forget(uuid)
         enqueue([uuid])
     }
@@ -180,23 +193,26 @@ final class AdSkipCoordinator: ObservableObject {
         return unskippedAds(for: episodeUuid).map(\.start).filter { $0 > time }.min()
     }
 
+    /// The ads that playback skips in this episode's current download, or nil when it hasn't been checked.
+    func skippableAds(for episodeUuid: String) -> [AdSegment]? {
+        currentResult(for: episodeUuid)?.segments.filter { $0.confidence >= AdSkipSettings.confidenceThreshold }
+    }
+
     private func unskippedAds(for episodeUuid: String) -> [AdSegment] {
-        currentSegments(for: episodeUuid).filter {
-            $0.confidence >= AdSkipSettings.confidenceThreshold && !skippedSegmentIDs.contains($0.id)
-        }
+        (skippableAds(for: episodeUuid) ?? []).filter { !skippedSegmentIDs.contains($0.id) }
     }
 
     /// Results only count for the download they were made from. A file replaced
     /// since (deleted and downloaded again) can carry different ads.
-    private func currentSegments(for episodeUuid: String) -> [AdSegment] {
-        guard let result = store.result(for: episodeUuid) else { return [] }
-        if let valid = validResults[episodeUuid] { return valid ? result.segments : [] }
+    private func currentResult(for episodeUuid: String) -> AdDetector.Result? {
+        guard let result = store.result(for: episodeUuid) else { return nil }
+        if let valid = validResults[episodeUuid] { return valid ? result : nil }
         let path = DataManager.shared.findEpisode(uuid: episodeUuid).map { DownloadManager.shared.path(for: $0) }
         let modified = path.flatMap { try? FileManager.default.attributesOfItem(atPath: $0)[.modificationDate] as? Date }
         let valid = modified.map { $0 <= result.analyzedAt } ?? false
         validResults[episodeUuid] = valid
         if !valid { store.remove(episodeUuid) }
-        return valid ? result.segments : []
+        return valid ? result : nil
     }
 
     func markSkipped(_ segment: AdSegment) {

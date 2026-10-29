@@ -4,6 +4,7 @@ import PocketCastsUtils
 /// Local-only settings for ad skipping. Nothing here syncs to Pocket Casts.
 enum AdSkipSettings {
     private static let enabledKey = "AdSkipEnabled"
+    private static let findOnDownloadKey = "AdSkipFindOnDownload"
     private static let apiKeyKeychainKey = "AdSkipOpenAIKey"
 
     /// Ads scored at or above this are skipped. OpenAI Decisions scores real ads 0.96 to 1.00.
@@ -12,6 +13,11 @@ enum AdSkipSettings {
     static var isEnabled: Bool {
         get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+    }
+
+    static var findOnDownload: Bool {
+        get { UserDefaults.standard.object(forKey: findOnDownloadKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: findOnDownloadKey) }
     }
 
     /// Readable after first unlock, so episodes downloaded while the phone is locked can be analyzed.
