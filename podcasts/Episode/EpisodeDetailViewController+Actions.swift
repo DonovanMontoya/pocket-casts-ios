@@ -162,6 +162,8 @@ extension EpisodeDetailViewController {
             playStatusButton.setImage(UIImage(named: "episode-markasplayed"), for: .normal)
             playStatusButton.setTitle(L10n.markPlayedShort, for: .normal)
         }
+
+        updateAdSkipCard()
     }
 
     func updateProgress() {
