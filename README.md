@@ -1,23 +1,14 @@
-<p align="center">
-    <!-- Pocket Casts brand image -->
-    <img src="https://user-images.githubusercontent.com/308331/194037473-41ad7eba-8602-4be5-be73-49e3c0c48c12.svg#gh-light-mode-only" />
-    <img src="https://user-images.githubusercontent.com/308331/194041226-4c6d8181-cafa-4ea8-8735-1d8106f5e5f6.svg#gh-dark-mode-only" />
-</p>
+# Pocket Casts iOS — ad-skipping experiment
 
-<p align="center">
-    <!-- Badge: "build: {trunk CI status}" -->
-    <a href="https://buildkite.com/automattic/pocket-casts-ios"><img src="https://badge.buildkite.com/6c995de3d1584006341cc4dfda1312619f375385f5c0319dfe.svg?branch=trunk" /></a>
-    <!-- Badge: "license: MPL" -->
-    <a href="https://github.com/Automattic/pocket-casts-ios/blob/trunk/LICENSE.md"><img src="https://img.shields.io/badge/license-MPL-black" /></a>
-    <!-- Badge: "platform: ios|watchos" -->
-    <img src="https://img.shields.io/badge/platform-ios%20%7C%20watchos-lightgrey" />
-    <!-- Badge: "Xcode: {version}+" -->
-    <img src="https://img.shields.io/badge/Xcode-v27.1%2B-informational" />
-</p>
+This is my personal fork of [Pocket Casts for iOS](https://github.com/Automattic/pocket-casts-ios), where I’m testing automatic ad detection and skipping. It is an experiment, unaffiliated with Pocket Casts or Automattic.
 
-<p align="center">
-    Pocket Casts is the world's most powerful podcast platform, an app by listeners, for listeners.
-</p>
+The experiment lives on [`feat/ad-skipping`](https://github.com/DonovanMontoya/pocket-casts-ios/tree/feat/ad-skipping). It transcribes downloaded episode audio on the iPhone with Apple Speech, checks transcript text for ads using OpenAI Decisions, and skips detected segments during playback. It also compares publisher-provided transcripts when available. Detected segments appear in episode details, the player timeline, and the chapters tab.
+
+Trying it requires iOS 26 or later and your own API key with access to the classification endpoint. Configure the key in **Settings → Ad Skipping**; it is stored in the device Keychain. Transcript text is sent to the external classification service; audio is transcribed on the device. API usage is billed to your account. Detection can miss ads or mistake episode content for ads; the settings include a confidence threshold and per-podcast controls.
+
+The `config/Personal/` files are my local signing setup, not a ready-to-use distribution configuration. Use your own signing identity and bundle identifiers when building for a device.
+
+The upstream code and modifications to it remain under the [Mozilla Public License 2.0](LICENSE.md). Existing copyright and license notices are retained. The build instructions below come from upstream.
 
 ## Setup
 
