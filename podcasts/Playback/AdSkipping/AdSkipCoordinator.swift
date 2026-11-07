@@ -174,13 +174,23 @@ final class AdSkipCoordinator: ObservableObject {
                 // Forgotten (deleted, or found again) while transcribing.
                 guard pending.contains(uuid) else { continue }
                 classify(job)
-            } catch is CancellationError {
+            } catch where work.isCancelled || Self.shouldRetryLater(error) {
+                // Cut short (out of background time, or iOS stopped Speech while the
+                // app was in the background, which is when auto downloads finish).
+                // Kept in the queue and picked up again when the app is next opened.
+                FileLog.shared.addMessage("AdSkip: transcribing \(uuid) stopped in the background, retrying when the app is opened: \(error.localizedDescription)")
                 statuses[uuid] = .waiting
                 return
             } catch {
                 failed(uuid, error)
             }
         }
+    }
+
+    /// Errors in the background are retried in the foreground rather than
+    /// reported, since iOS can stop speech or network work at any point there.
+    private static func shouldRetryLater(_ error: Error) -> Bool {
+        error is CancellationError || UIApplication.shared.applicationState != .active
     }
 
     private struct Transcribed {
@@ -237,8 +247,9 @@ final class AdSkipCoordinator: ObservableObject {
                 let transcribing = job.transcribed.timeIntervalSince(job.started)
                 let classifying = Date().timeIntervalSince(job.transcribed)
                 FileLog.shared.addMessage("AdSkip: found \(result.segments.count) ads in \(uuid) from \(result.cueCount) cues, publisher transcript used: \(result.usedPublisherTranscript), transcribing \(Int(transcribing))s, classifying \(Int(classifying))s")
-            } catch where work.isCancelled {
-                // Out of background time: picked up again when the app is next opened.
+            } catch where work.isCancelled || Self.shouldRetryLater(error) {
+                // Out of background time, or the request dropped when the app was
+                // suspended: picked up again when the app is next opened.
                 // When forgotten instead, forget() already dropped this task.
                 if classifications[uuid] == work { statuses[uuid] = .waiting }
             } catch {
