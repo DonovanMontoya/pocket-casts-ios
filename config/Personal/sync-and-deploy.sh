@@ -7,8 +7,9 @@
 # has installed the current branch, so a Mac that was asleep or a phone that was
 # away gets picked up later the same day.
 #
-# Work happens in its own detached worktree, so the main checkout is never touched
-# except to move its feat/ad-skipping forward when it's clean and was up to date.
+# Work happens in its own clone under ~/Library/Application Support (launchd jobs
+# can't read ~/Documents), so the main checkout is never touched. After a rebase,
+# update it with: git fetch && git reset --keep origin/feat/ad-skipping
 #
 # Usage: config/Personal/sync-and-deploy.sh [--force]   (--force: build and install even if already done)
 set -uo pipefail
@@ -17,9 +18,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 branch=feat/ad-skipping
 device=${CASTS_AI_DEVICE:-00008160-000A3D4601E00036}   # Donovans iPhone
-main_checkout=${CASTS_AI_REPO:-$HOME/Documents/Github/pocket-casts-ios}
 state=$HOME/Library/Application\ Support/casts-ai-sync
-work=$state/worktree
+work=$state/repo
 derived=$HOME/Library/Caches/casts-ai-sync/DerivedData
 log=$state/sync.log
 force=${1:-}
@@ -43,27 +43,20 @@ fi
 trap 'rmdir "$lock"' EXIT
 
 say "---- run started"
-cd "$main_checkout" || fail "main checkout not found at $main_checkout"
-
-git fetch --quiet upstream trunk && git fetch --quiet origin "$branch" || fail "git fetch failed"
-
-old=$(git rev-parse "origin/$branch")
-local_sha=$(git rev-parse "$branch")
-if [[ $local_sha != $old ]]; then
-  fail "local $branch ($local_sha) differs from origin. Push or reset it, then run again."
+if [[ ! -d $work/.git ]]; then
+  git clone --quiet --branch "$branch" https://github.com/DonovanMontoya/pocket-casts-ios.git "$work" \
+    || fail "could not clone the fork"
+  git -C "$work" remote add upstream https://github.com/Automattic/pocket-casts-ios.git
 fi
-
-# Dedicated worktree, detached so it never holds the branch.
-if [[ ! -d $work/.git && ! -f $work/.git ]]; then
-  git worktree add --detach "$work" "$old" || fail "could not create worktree"
-fi
-cd "$work" || fail "worktree missing"
+cd "$work" || fail "clone missing"
 git rebase --abort >/dev/null 2>&1
-git reset --quiet --hard && git clean -fdq -e build || fail "could not clean worktree"
+git fetch --quiet upstream trunk && git fetch --quiet origin "$branch" || fail "git fetch failed"
+old=$(git rev-parse "origin/$branch")
+git reset --quiet --hard && git clean -fdq || fail "could not clean the clone"
 git checkout --quiet --detach "$old" || fail "checkout failed"
 
 # Gitignored credentials the build needs.
-cp "$main_checkout/podcasts/Credentials/LocalApiCredentials.swift" podcasts/Credentials/ 2>/dev/null \
+cp "$state/LocalApiCredentials.swift" podcasts/Credentials/ 2>/dev/null \
   || make external_contributor >/dev/null || fail "could not set up LocalApiCredentials.swift"
 
 if git merge-base --is-ancestor upstream/trunk HEAD; then
@@ -112,19 +105,6 @@ if [[ $new != $old ]]; then
   git push --quiet --force-with-lease="$branch:$old" origin "HEAD:refs/heads/$branch" \
     || fail "installed, but pushing the rebased $branch failed."
 
-  # Move the main checkout's branch too, but only if it's safe.
-  cd "$main_checkout"
-  if [[ $(git rev-parse "$branch") == $old ]]; then
-    if [[ $(git symbolic-ref --quiet --short HEAD) == $branch ]]; then
-      if [[ -z $(git status --porcelain --untracked-files=no) ]]; then
-        git reset --quiet --keep "$new" && say "Main checkout moved to $(git rev-parse --short "$new")."
-      else
-        say "Main checkout has uncommitted changes; left $branch at $(git rev-parse --short "$old")."
-      fi
-    else
-      git branch --quiet -f "$branch" "$new"
-    fi
-  fi
 fi
 
 notify "Installed Casts AI $(git -C "$work" log -1 --format='%h %s' "$new" | cut -c1-80)"
