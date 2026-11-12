@@ -3,9 +3,7 @@
 # on the iPhone and pushes the rebased branch to the fork.
 #
 # Run by launchd (config/Personal/com.donovanmontoya.casts-ai-sync.plist) on Mondays
-# and Thursdays. It runs a few times each of those days and does nothing once a run
-# has installed the current branch, so a Mac that was asleep or a phone that was
-# away gets picked up later the same day.
+# and Thursdays at 7:00. It does nothing if the current branch is already installed.
 #
 # Work happens in its own clone in ~/.casts-ai-sync (launchd jobs
 # can't read ~/Documents), so the main checkout is never touched. After a rebase,
@@ -78,7 +76,7 @@ if [[ $force != --force && -f $state/installed && $(<"$state/installed") == $new
 fi
 
 if ! xcrun devicectl list devices 2>/dev/null | grep "$device" | grep -q available; then
-  # Keep the rebase local for now; a later run today retries.
+  # Keep the rebase local for now; the next scheduled run retries.
   say "iPhone not available. Will try again on the next run."
   exit 0
 fi

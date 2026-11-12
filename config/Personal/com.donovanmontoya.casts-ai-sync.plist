@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Mondays and Thursdays at 7:00, 12:00 and 18:00. Runs after the first one that
-     installs do nothing. Install with config/Personal/install-sync-schedule.sh. -->
+<!-- Mondays and Thursdays at 7:00. If the Mac is asleep then, launchd runs it on wake.
+     Install with config/Personal/install-sync-schedule.sh. -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
@@ -14,11 +14,7 @@
   <key>StartCalendarInterval</key>
   <array>
     <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
     <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
   </array>
   <!-- Not "Background": that confines the build to efficiency cores and throttled
        I/O, which took a full build to 45 minutes. The script runs xcodebuild under nice. -->
