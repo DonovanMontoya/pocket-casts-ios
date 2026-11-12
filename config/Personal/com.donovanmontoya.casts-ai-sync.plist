@@ -20,9 +20,9 @@
     <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
     <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
   </array>
+  <!-- Not "Background": that confines the build to efficiency cores and throttled
+       I/O, which took a full build to 45 minutes. The script runs xcodebuild under nice. -->
   <key>ProcessType</key>
-  <string>Background</string>
-  <key>LowPriorityIO</key>
-  <true/>
+  <string>Standard</string>
 </dict>
 </plist>
