@@ -7,7 +7,7 @@
 # has installed the current branch, so a Mac that was asleep or a phone that was
 # away gets picked up later the same day.
 #
-# Work happens in its own clone under ~/Library/Application Support (launchd jobs
+# Work happens in its own clone in ~/.casts-ai-sync (launchd jobs
 # can't read ~/Documents), so the main checkout is never touched. After a rebase,
 # update it with: git fetch && git reset --keep origin/feat/ad-skipping
 #
@@ -19,7 +19,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 branch=feat/ad-skipping
 device=${CASTS_AI_DEVICE:-00008160-000A3D4601E00036}   # Donovans iPhone
 state=$HOME/Library/Application\ Support/casts-ai-sync
-work=$state/repo
+work=$HOME/.casts-ai-sync/repo   # no spaces: a build phase script breaks on them
 derived=$HOME/Library/Caches/casts-ai-sync/DerivedData
 log=$state/sync.log
 force=${1:-}
